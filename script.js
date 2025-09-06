@@ -6,9 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Image data
     const images = [];
     const imagePaths = [
-        'images/Flag_of_Ukraine.svg.png',
-        'images/simmons-university.jpg',
-        'images/IMG_2358.jpg'
+        './images/Flag_of_Ukraine.svg.png',
+        './images/simmons-university.jpg',
+        './images/IMG_2358.jpg'
     ];
     
     // Gyro and shake detection
