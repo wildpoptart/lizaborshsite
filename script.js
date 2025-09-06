@@ -37,16 +37,48 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set canvas size
     function resizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
         
-        // Ensure canvas fills the viewport properly on mobile
-        canvas.style.width = window.innerWidth + 'px';
-        canvas.style.height = window.innerHeight + 'px';
+        // Set canvas dimensions
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Ensure canvas fills the viewport properly on mobile Safari
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        canvas.style.position = 'fixed';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.zIndex = '1';
+        
+        // Force canvas to be visible on mobile Safari
+        canvas.style.display = 'block';
+        canvas.style.visibility = 'visible';
     }
     
-    // Initial resize
+    // Mobile Safari detection
+    const isMobileSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
+    
+    // Initial resize with mobile Safari fix
     resizeCanvas();
+    
+    // Additional mobile Safari initialization
+    if (isMobileSafari) {
+        // Force a re-render after a short delay for mobile Safari
+        setTimeout(() => {
+            resizeCanvas();
+            if (images.length > 0) {
+                // Trigger a redraw
+                requestAnimationFrame(() => {
+                    // Force canvas to be visible
+                    canvas.style.display = 'none';
+                    canvas.offsetHeight; // Trigger reflow
+                    canvas.style.display = 'block';
+                });
+            }
+        }, 100);
+    }
     
     // Resize on window resize
     window.addEventListener('resize', function() {
@@ -111,17 +143,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Request device motion permission and add event listener
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        // iOS 13+ requires permission
-        DeviceMotionEvent.requestPermission().then(response => {
-            if (response === 'granted') {
-                window.addEventListener('devicemotion', handleDeviceMotion);
-            }
-        });
-    } else {
-        // Android and older iOS
-        window.addEventListener('devicemotion', handleDeviceMotion);
+    // Request device motion permission and add event listener (updated for iOS 17+)
+    if (typeof DeviceMotionEvent !== 'undefined') {
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            // iOS 13+ requires permission
+            DeviceMotionEvent.requestPermission().then(response => {
+                if (response === 'granted') {
+                    window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
+                }
+            }).catch(() => {
+                // Fallback if permission fails
+                console.log('Device motion permission denied or not available');
+            });
+        } else {
+            // Android and older iOS
+            window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
+        }
     }
     
     // Background color change functions
