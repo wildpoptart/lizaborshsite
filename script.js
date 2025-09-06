@@ -34,6 +34,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let lastDragY = 0;
     let dragSensitivity = 50; // Pixels to drag before color changes
     
+    // Image dragging
+    let draggedImage = null;
+    let dragOffset = { x: 0, y: 0 };
+    let imageVelocities = []; // Store velocities for bouncing
+    
     // Set canvas size
     function resizeCanvas() {
         const width = window.innerWidth;
@@ -129,7 +134,79 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
     }
     
-    // Add event listeners for drag functionality
+    // Image drag detection
+    function getImageAtPoint(x, y) {
+        for (let i = images.length - 1; i >= 0; i--) {
+            const img = images[i];
+            if (x >= img.x && x <= img.x + img.width &&
+                y >= img.y && y <= img.y + img.height) {
+                return img;
+            }
+        }
+        return null;
+    }
+    
+    // Mouse/Touch event handlers for image dragging
+    let lastDragPosition = { x: 0, y: 0 };
+    let dragStartTime = 0;
+    
+    function handleImageDragStart(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.type === 'touchstart' ? e.touches[0].clientX : e.clientX) - rect.left;
+        const y = (e.type === 'touchstart' ? e.touches[0].clientY : e.clientY) - rect.top;
+        
+        const clickedImage = getImageAtPoint(x, y);
+        if (clickedImage) {
+            draggedImage = clickedImage;
+            draggedImage.isDragged = true;
+            dragOffset.x = x - draggedImage.x;
+            dragOffset.y = y - draggedImage.y;
+            lastDragPosition = { x: x, y: y };
+            dragStartTime = Date.now();
+            e.preventDefault();
+        }
+    }
+    
+    function handleImageDragMove(e) {
+        if (draggedImage) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.type === 'touchmove' ? e.touches[0].clientX : e.clientX) - rect.left;
+            const y = (e.type === 'touchmove' ? e.touches[0].clientY : e.clientY) - rect.top;
+            
+            draggedImage.x = x - dragOffset.x;
+            draggedImage.y = y - dragOffset.y;
+            
+            // Update last position for momentum calculation
+            lastDragPosition = { x: x, y: y };
+            e.preventDefault();
+        }
+    }
+    
+    function handleImageDragEnd(e) {
+        if (draggedImage) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.type === 'touchend' ? e.changedTouches[0].clientX : e.clientX) - rect.left;
+            const y = (e.type === 'touchend' ? e.changedTouches[0].clientY : e.clientY) - rect.top;
+            
+            // Calculate momentum based on drag speed and direction
+            const dragDuration = Date.now() - dragStartTime;
+            const dragDistance = Math.sqrt(
+                Math.pow(x - lastDragPosition.x, 2) + 
+                Math.pow(y - lastDragPosition.y, 2)
+            );
+            
+            // Calculate velocity based on recent movement
+            const momentumFactor = Math.min(dragDistance / 10, 3); // Cap momentum
+            draggedImage.vx = (x - lastDragPosition.x) * momentumFactor * 0.3;
+            draggedImage.vy = (y - lastDragPosition.y) * momentumFactor * 0.3;
+            
+            draggedImage.isDragged = false;
+            draggedImage = null;
+            e.preventDefault();
+        }
+    }
+    
+    // Add event listeners for background color drag functionality
     // Touch events
     document.addEventListener('touchstart', handleDragStart, { passive: false });
     document.addEventListener('touchmove', handleDragMove, { passive: false });
@@ -139,6 +216,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('mousedown', handleDragStart);
     document.addEventListener('mousemove', handleDragMove);
     document.addEventListener('mouseup', handleDragEnd);
+    
+    // Add event listeners for image dragging
+    canvas.addEventListener('mousedown', handleImageDragStart);
+    canvas.addEventListener('mousemove', handleImageDragMove);
+    canvas.addEventListener('mouseup', handleImageDragEnd);
+    canvas.addEventListener('touchstart', handleImageDragStart, { passive: false });
+    canvas.addEventListener('touchmove', handleImageDragMove, { passive: false });
+    canvas.addEventListener('touchend', handleImageDragEnd, { passive: false });
     
     // Prevent default scrolling
     document.addEventListener('touchmove', function(e) {
@@ -200,11 +285,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     y: Math.max(0, Math.min(y, canvas.height - imageSize)), // Clamp to bounds
                     width: imageSize, // Fixed size of 100px
                     height: imageSize, // Fixed size of 100px
-                    baseY: Math.max(imageSize, Math.min(y, canvas.height - imageSize)), // Base Y position for bobbing
                     tilt: (Math.random() - 0.5) * 0.3, // Slight tilt left or right (in radians)
-                    bobSpeed: Math.random() * 0.015 + 0.008, // Random bobbing speed (slower)
-                    bobAmplitude: Math.random() * 8 + 4, // Random bobbing amplitude (smaller)
-                    time: Math.random() * Math.PI * 2 // Random starting time for bobbing
+                    vx: 0, // Velocity X
+                    vy: 0, // Velocity Y
+                    isDragged: false, // Track if being dragged
+                    bounce: 0.8 // Bounce damping factor
                 });
                 loadedCount++;
                 
@@ -225,16 +310,35 @@ document.addEventListener('DOMContentLoaded', function() {
         images.forEach(imgData => {
             ctx.save();
             
-            // Update bobbing time
-            imgData.time += imgData.bobSpeed;
-            
-            // Calculate bobbing Y position
-            imgData.y = imgData.baseY + Math.sin(imgData.time) * imgData.bobAmplitude;
-            
-            // Ensure bobbing stays within bounds
-            const imageSize = 100;
-            if (imgData.y < 0) imgData.y = 0;
-            if (imgData.y > canvas.height - imageSize) imgData.y = canvas.height - imageSize;
+            // Apply physics if not being dragged
+            if (!imgData.isDragged) {
+                // Apply velocity (momentum)
+                imgData.x += imgData.vx;
+                imgData.y += imgData.vy;
+                
+                // Bounce off edges
+                const imageSize = 100;
+                if (imgData.x <= 0) {
+                    imgData.x = 0;
+                    imgData.vx *= -imgData.bounce;
+                }
+                if (imgData.x >= canvas.width - imageSize) {
+                    imgData.x = canvas.width - imageSize;
+                    imgData.vx *= -imgData.bounce;
+                }
+                if (imgData.y <= 0) {
+                    imgData.y = 0;
+                    imgData.vy *= -imgData.bounce;
+                }
+                if (imgData.y >= canvas.height - imageSize) {
+                    imgData.y = canvas.height - imageSize;
+                    imgData.vy *= -imgData.bounce;
+                }
+                
+                // Apply friction (gradual momentum loss)
+                imgData.vx *= 0.99;
+                imgData.vy *= 0.99;
+            }
             
             // Move to image center for tilt
             ctx.translate(imgData.x + imgData.width / 2, imgData.y + imgData.height / 2);
