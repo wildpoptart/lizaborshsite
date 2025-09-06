@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const imagePaths = [
         './images/Flag_of_Ukraine.svg.png',
         './images/simmons-university.jpg',
-        './images/IMG_2358.jpg'
+        './images/IMG_2358.JPG'
     ];
     
     // Gyro and shake detection
