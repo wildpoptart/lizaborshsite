@@ -113,9 +113,26 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Touch/Mouse drag handlers
     function handleDragStart(e) {
-        isDragging = true;
-        lastDragY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-        e.preventDefault();
+        // Only handle background drag if we're not touching an image
+        const rect = canvas.getBoundingClientRect();
+        let x, y;
+        
+        if (e.type === 'touchstart') {
+            x = e.touches[0].clientX - rect.left;
+            y = e.touches[0].clientY - rect.top;
+        } else {
+            x = e.clientX - rect.left;
+            y = e.clientY - rect.top;
+        }
+        
+        const clickedImage = getImageAtPoint(x, y);
+        
+        // Only start background drag if no image was clicked
+        if (!clickedImage) {
+            isDragging = true;
+            lastDragY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            e.preventDefault();
+        }
     }
     
     function handleDragMove(e) {
@@ -154,9 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let touchStartPosition = { x: 0, y: 0 };
     
     function handleImageDragStart(e) {
-        // Prevent default touch behavior on Safari
-        e.preventDefault();
-        e.stopPropagation();
+        console.log('Image drag start:', e.type); // Debug log
         
         const rect = canvas.getBoundingClientRect();
         let x, y;
@@ -165,12 +180,15 @@ document.addEventListener('DOMContentLoaded', function() {
             x = e.touches[0].clientX - rect.left;
             y = e.touches[0].clientY - rect.top;
             touchStartPosition = { x: x, y: y };
+            console.log('Touch start at:', x, y); // Debug log
         } else {
             x = e.clientX - rect.left;
             y = e.clientY - rect.top;
         }
         
         const clickedImage = getImageAtPoint(x, y);
+        console.log('Clicked image:', clickedImage); // Debug log
+        
         if (clickedImage) {
             draggedImage = clickedImage;
             draggedImage.isDragged = true;
@@ -178,6 +196,12 @@ document.addEventListener('DOMContentLoaded', function() {
             dragOffset.y = y - draggedImage.y;
             lastDragPosition = { x: x, y: y };
             dragStartTime = Date.now();
+            
+            console.log('Started dragging image at:', draggedImage.x, draggedImage.y); // Debug log
+            
+            // Prevent default touch behavior on Safari
+            e.preventDefault();
+            e.stopPropagation();
             
             // Add visual feedback for touch
             if (isTouchDevice) {
@@ -188,9 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function handleImageDragMove(e) {
         if (draggedImage) {
-            // Prevent default touch behavior on Safari
-            e.preventDefault();
-            e.stopPropagation();
+            console.log('Image drag move:', e.type); // Debug log
             
             const rect = canvas.getBoundingClientRect();
             let x, y;
@@ -198,13 +220,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.type === 'touchmove') {
                 x = e.touches[0].clientX - rect.left;
                 y = e.touches[0].clientY - rect.top;
+                console.log('Touch move to:', x, y); // Debug log
             } else {
                 x = e.clientX - rect.left;
                 y = e.clientY - rect.top;
             }
             
-            draggedImage.x = x - dragOffset.x;
-            draggedImage.y = y - dragOffset.y;
+            const newX = x - dragOffset.x;
+            const newY = y - dragOffset.y;
+            
+            console.log('Moving image to:', newX, newY); // Debug log
+            
+            draggedImage.x = newX;
+            draggedImage.y = newY;
             
             // Keep image within canvas bounds
             const imageSize = 100;
@@ -213,6 +241,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update last position for momentum calculation
             lastDragPosition = { x: x, y: y };
+            
+            // Prevent default touch behavior on Safari
+            e.preventDefault();
+            e.stopPropagation();
         }
     }
     
@@ -256,23 +288,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Add event listeners for background color drag functionality
-    // Touch events
-    document.addEventListener('touchstart', handleDragStart, { passive: false });
-    document.addEventListener('touchmove', handleDragMove, { passive: false });
-    document.addEventListener('touchend', handleDragEnd, { passive: false });
-    
-    // Mouse events (for desktop testing)
-    document.addEventListener('mousedown', handleDragStart);
-    document.addEventListener('mousemove', handleDragMove);
-    document.addEventListener('mouseup', handleDragEnd);
-    
-    // Add event listeners for image dragging with Safari mobile optimizations
+    // Add event listeners for image dragging FIRST (higher priority)
     canvas.addEventListener('mousedown', handleImageDragStart);
     canvas.addEventListener('mousemove', handleImageDragMove);
     canvas.addEventListener('mouseup', handleImageDragEnd);
     
-    // Touch events with Safari mobile specific handling
+    // Touch events with Safari mobile specific handling - use capture phase
     canvas.addEventListener('touchstart', handleImageDragStart, { 
         passive: false, 
         capture: true 
@@ -285,6 +306,17 @@ document.addEventListener('DOMContentLoaded', function() {
         passive: false, 
         capture: true 
     });
+    
+    // Add event listeners for background color drag functionality (lower priority)
+    // Touch events
+    document.addEventListener('touchstart', handleDragStart, { passive: false });
+    document.addEventListener('touchmove', handleDragMove, { passive: false });
+    document.addEventListener('touchend', handleDragEnd, { passive: false });
+    
+    // Mouse events (for desktop testing)
+    document.addEventListener('mousedown', handleDragStart);
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
     
     // Additional Safari mobile touch event handling
     if (isIOS) {
@@ -308,6 +340,52 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
         }
     }, { passive: false });
+    
+    // Add a unified touch handler for better Safari mobile support
+    function unifiedTouchHandler(e) {
+        const rect = canvas.getBoundingClientRect();
+        let x, y;
+        
+        if (e.type === 'touchstart') {
+            x = e.touches[0].clientX - rect.left;
+            y = e.touches[0].clientY - rect.top;
+        } else if (e.type === 'touchmove') {
+            x = e.touches[0].clientX - rect.left;
+            y = e.touches[0].clientY - rect.top;
+        } else if (e.type === 'touchend') {
+            x = lastDragPosition.x;
+            y = lastDragPosition.y;
+        }
+        
+        const clickedImage = getImageAtPoint(x, y);
+        
+        if (e.type === 'touchstart' && clickedImage) {
+            // Handle image drag start
+            handleImageDragStart(e);
+        } else if (e.type === 'touchmove' && draggedImage) {
+            // Handle image drag move
+            handleImageDragMove(e);
+        } else if (e.type === 'touchend' && draggedImage) {
+            // Handle image drag end
+            handleImageDragEnd(e);
+        } else if (e.type === 'touchstart' && !clickedImage) {
+            // Handle background drag start
+            handleDragStart(e);
+        } else if (e.type === 'touchmove' && isDragging && !draggedImage) {
+            // Handle background drag move
+            handleDragMove(e);
+        } else if (e.type === 'touchend' && isDragging && !draggedImage) {
+            // Handle background drag end
+            handleDragEnd(e);
+        }
+    }
+    
+    // Add unified touch handler as backup
+    if (isIOS) {
+        canvas.addEventListener('touchstart', unifiedTouchHandler, { passive: false, capture: false });
+        canvas.addEventListener('touchmove', unifiedTouchHandler, { passive: false, capture: false });
+        canvas.addEventListener('touchend', unifiedTouchHandler, { passive: false, capture: false });
+    }
     
     // Prevent default scrolling on wheel events
     document.addEventListener('wheel', function(e) {
