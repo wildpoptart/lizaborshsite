@@ -39,6 +39,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+        
+        // Ensure canvas fills the viewport properly on mobile
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
     }
     
     // Initial resize
@@ -214,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const imageSize = 100;
                 const textCenterX = canvas.width / 2;
                 const textCenterY = canvas.height / 2;
-                const clusterRadius = 200; // Radius around text center
+                const clusterRadius = Math.min(200, Math.min(canvas.width, canvas.height) * 0.3); // Responsive radius
                 
                 // Generate position within cluster radius
                 const angle = Math.random() * Math.PI * 2;
