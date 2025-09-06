@@ -3,6 +3,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
+    // Enable high-quality image smoothing
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
     // Image data
     const images = [];
     const imagePaths = [
@@ -11,11 +15,6 @@ document.addEventListener('DOMContentLoaded', function() {
         './images/IMG_2358.JPG'
     ];
     
-    // Gyro and shake detection
-    let tiltControlEnabled = false;
-    let lastShakeTime = 0;
-    let gyroData = { x: 0, y: 0 };
-    let basePositions = []; // Store original positions for reset
     
     // Background color cycling
     const backgroundColors = [
@@ -43,6 +42,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set canvas dimensions
         canvas.width = width;
         canvas.height = height;
+        
+        // Enable image smoothing for crisp images
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         
         // Ensure canvas fills the viewport properly on mobile Safari
         canvas.style.width = width + 'px';
@@ -87,144 +90,6 @@ document.addEventListener('DOMContentLoaded', function() {
         repositionImages();
     });
     
-    // Shake detection
-    let lastAcceleration = { x: 0, y: 0, z: 0 };
-    let shakeThreshold = 8; // Lowered threshold for better detection
-    let shakeCount = 0;
-    
-    function handleDeviceMotion(event) {
-        const acceleration = event.accelerationIncludingGravity;
-        const currentTime = Date.now();
-        
-        // Debug logging (remove in production)
-        console.log('Acceleration:', acceleration);
-        
-        // Calculate shake intensity using total acceleration magnitude
-        const totalAcceleration = Math.sqrt(
-            Math.pow(acceleration.x || 0, 2) + 
-            Math.pow(acceleration.y || 0, 2) + 
-            Math.pow(acceleration.z || 0, 2)
-        );
-        
-        const lastTotalAcceleration = Math.sqrt(
-            Math.pow(lastAcceleration.x || 0, 2) + 
-            Math.pow(lastAcceleration.y || 0, 2) + 
-            Math.pow(lastAcceleration.z || 0, 2)
-        );
-        
-        const shakeIntensity = Math.abs(totalAcceleration - lastTotalAcceleration);
-        
-        // Detect shake with multiple methods
-        if (shakeIntensity > shakeThreshold && currentTime - lastShakeTime > 800) {
-            shakeCount++;
-            console.log('Shake detected! Count:', shakeCount, 'Intensity:', shakeIntensity);
-            
-            if (shakeCount >= 2) { // Require 2 shakes within timeframe
-                lastShakeTime = currentTime;
-                shakeCount = 0;
-                toggleTiltControl();
-            }
-        }
-        
-        // Reset shake count if too much time has passed
-        if (currentTime - lastShakeTime > 2000) {
-            shakeCount = 0;
-        }
-        
-        lastAcceleration = { 
-            x: acceleration.x || 0, 
-            y: acceleration.y || 0, 
-            z: acceleration.z || 0 
-        };
-        
-        // Update gyro data for tilt control
-        if (tiltControlEnabled) {
-            gyroData.x = (acceleration.x || 0) * 0.1; // Scale down the effect
-            gyroData.y = (acceleration.y || 0) * 0.1;
-        }
-    }
-    
-    // Toggle tilt control on/off
-    function toggleTiltControl() {
-        tiltControlEnabled = !tiltControlEnabled;
-        
-        if (tiltControlEnabled) {
-            // Store base positions when enabling tilt control
-            basePositions = images.map(img => ({
-                x: img.x,
-                y: img.y,
-                baseY: img.baseY
-            }));
-            console.log('Tilt control enabled! Tilt your phone to move images.');
-        } else {
-            // Reset to base positions when disabling
-            images.forEach((img, index) => {
-                if (basePositions[index]) {
-                    img.x = basePositions[index].x;
-                    img.y = basePositions[index].y;
-                    img.baseY = basePositions[index].baseY;
-                }
-            });
-            gyroData = { x: 0, y: 0 };
-            console.log('Tilt control disabled. Shake to re-enable.');
-        }
-    }
-    
-    // Request device motion permission and add event listener (updated for iOS 17+)
-    function initMotionSensors() {
-        if (typeof DeviceMotionEvent !== 'undefined') {
-            if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                // iOS 13+ requires permission
-                DeviceMotionEvent.requestPermission().then(response => {
-                    if (response === 'granted') {
-                        window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
-                        console.log('Device motion permission granted');
-                    } else {
-                        console.log('Device motion permission denied');
-                        // Add fallback shake detection
-                        addFallbackShakeDetection();
-                    }
-                }).catch((error) => {
-                    console.log('Device motion permission error:', error);
-                    addFallbackShakeDetection();
-                });
-            } else {
-                // Android and older iOS
-                window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
-                console.log('Device motion added (no permission required)');
-            }
-        } else {
-            console.log('Device motion not supported');
-            addFallbackShakeDetection();
-        }
-    }
-    
-    // Fallback shake detection using touch events
-    function addFallbackShakeDetection() {
-        let touchStartTime = 0;
-        let touchCount = 0;
-        
-        document.addEventListener('touchstart', function(e) {
-            touchStartTime = Date.now();
-        });
-        
-        document.addEventListener('touchend', function(e) {
-            const touchDuration = Date.now() - touchStartTime;
-            if (touchDuration < 200) { // Quick tap
-                touchCount++;
-                if (touchCount >= 3) { // Triple tap to toggle
-                    touchCount = 0;
-                    toggleTiltControl();
-                }
-                setTimeout(() => touchCount = 0, 1000); // Reset count after 1 second
-            }
-        });
-        
-        console.log('Fallback shake detection added (triple tap to toggle)');
-    }
-    
-    // Initialize motion sensors
-    initMotionSensors();
     
     // Background color change functions
     function changeBackgroundColor(direction) {
@@ -316,17 +181,18 @@ document.addEventListener('DOMContentLoaded', function() {
         imagePaths.forEach((path, index) => {
             const img = new Image();
             img.onload = function() {
-                // Store image with position clustered around text container
+                // Store image with position in lower 3/4 of page
                 const imageSize = 100;
                 const textCenterX = canvas.width / 2;
-                const textCenterY = canvas.height / 2;
-                const clusterRadius = Math.min(200, Math.min(canvas.width, canvas.height) * 0.3); // Responsive radius
+                const lowerAreaStartY = canvas.height * 0.25; // Start below upper 1/4
+                const lowerAreaHeight = canvas.height * 0.75; // Use lower 3/4
+                const clusterRadius = Math.min(150, Math.min(canvas.width, canvas.height) * 0.25); // Smaller radius
                 
-                // Generate position within cluster radius
+                // Generate position in lower area
                 const angle = Math.random() * Math.PI * 2;
                 const distance = Math.random() * clusterRadius;
                 const x = textCenterX + Math.cos(angle) * distance - imageSize / 2;
-                const y = textCenterY + Math.sin(angle) * distance - imageSize / 2;
+                const y = lowerAreaStartY + (lowerAreaHeight * 0.3) + Math.sin(angle) * distance - imageSize / 2;
                 
                 images.push({
                     image: img,
@@ -363,19 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
             imgData.time += imgData.bobSpeed;
             
             // Calculate bobbing Y position
-            let bobY = imgData.baseY + Math.sin(imgData.time) * imgData.bobAmplitude;
-            
-            // Apply gyro-based movement if tilt control is enabled
-            if (tiltControlEnabled && basePositions.length > 0) {
-                const baseIndex = images.indexOf(imgData);
-                if (basePositions[baseIndex]) {
-                    // Add gyro offset to base position
-                    imgData.x = basePositions[baseIndex].x + gyroData.x * 50; // Scale gyro effect
-                    bobY = basePositions[baseIndex].baseY + gyroData.y * 30 + Math.sin(imgData.time) * imgData.bobAmplitude;
-                }
-            }
-            
-            imgData.y = bobY;
+            imgData.y = imgData.baseY + Math.sin(imgData.time) * imgData.bobAmplitude;
             
             // Ensure bobbing stays within bounds
             const imageSize = 100;

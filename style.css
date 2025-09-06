@@ -5,8 +5,7 @@ body {
     height: 100dvh; /* Dynamic viewport height for mobile */
     width: 100vw;
     display: flex;
-    justify-content: center;
-    align-items: center;
+    align-items: flex-start; /* Align to top instead of center */
     font-family: Arial, sans-serif;
     font-size: 2rem;
     flex-direction: column;
@@ -27,6 +26,8 @@ body {
     position: relative;
     z-index: 10;
     border-radius: 10px;
+    align-self: center; /* Center the container horizontally */
+    top: 20px
 }
 
 .wave {
@@ -53,4 +54,8 @@ canvas {
     height: 100dvh; /* Dynamic viewport height for mobile */
     z-index: 1;
     display: block;
+    image-rendering: -webkit-optimize-contrast; /* Safari */
+    image-rendering: -moz-crisp-edges; /* Firefox */
+    image-rendering: crisp-edges; /* Standard */
+    image-rendering: auto; /* Fallback to smooth */
 }
