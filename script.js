@@ -89,26 +89,53 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Shake detection
     let lastAcceleration = { x: 0, y: 0, z: 0 };
-    let shakeThreshold = 15;
+    let shakeThreshold = 8; // Lowered threshold for better detection
+    let shakeCount = 0;
     
     function handleDeviceMotion(event) {
         const acceleration = event.accelerationIncludingGravity;
         const currentTime = Date.now();
         
-        // Calculate shake intensity
-        const deltaX = Math.abs(acceleration.x - lastAcceleration.x);
-        const deltaY = Math.abs(acceleration.y - lastAcceleration.y);
-        const deltaZ = Math.abs(acceleration.z - lastAcceleration.z);
+        // Debug logging (remove in production)
+        console.log('Acceleration:', acceleration);
         
-        const shakeIntensity = deltaX + deltaY + deltaZ;
+        // Calculate shake intensity using total acceleration magnitude
+        const totalAcceleration = Math.sqrt(
+            Math.pow(acceleration.x || 0, 2) + 
+            Math.pow(acceleration.y || 0, 2) + 
+            Math.pow(acceleration.z || 0, 2)
+        );
         
-        // Detect shake
-        if (shakeIntensity > shakeThreshold && currentTime - lastShakeTime > 1000) {
-            lastShakeTime = currentTime;
-            toggleTiltControl();
+        const lastTotalAcceleration = Math.sqrt(
+            Math.pow(lastAcceleration.x || 0, 2) + 
+            Math.pow(lastAcceleration.y || 0, 2) + 
+            Math.pow(lastAcceleration.z || 0, 2)
+        );
+        
+        const shakeIntensity = Math.abs(totalAcceleration - lastTotalAcceleration);
+        
+        // Detect shake with multiple methods
+        if (shakeIntensity > shakeThreshold && currentTime - lastShakeTime > 800) {
+            shakeCount++;
+            console.log('Shake detected! Count:', shakeCount, 'Intensity:', shakeIntensity);
+            
+            if (shakeCount >= 2) { // Require 2 shakes within timeframe
+                lastShakeTime = currentTime;
+                shakeCount = 0;
+                toggleTiltControl();
+            }
         }
         
-        lastAcceleration = { x: acceleration.x, y: acceleration.y, z: acceleration.z };
+        // Reset shake count if too much time has passed
+        if (currentTime - lastShakeTime > 2000) {
+            shakeCount = 0;
+        }
+        
+        lastAcceleration = { 
+            x: acceleration.x || 0, 
+            y: acceleration.y || 0, 
+            z: acceleration.z || 0 
+        };
         
         // Update gyro data for tilt control
         if (tiltControlEnabled) {
@@ -144,22 +171,60 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Request device motion permission and add event listener (updated for iOS 17+)
-    if (typeof DeviceMotionEvent !== 'undefined') {
-        if (typeof DeviceMotionEvent.requestPermission === 'function') {
-            // iOS 13+ requires permission
-            DeviceMotionEvent.requestPermission().then(response => {
-                if (response === 'granted') {
-                    window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
-                }
-            }).catch(() => {
-                // Fallback if permission fails
-                console.log('Device motion permission denied or not available');
-            });
+    function initMotionSensors() {
+        if (typeof DeviceMotionEvent !== 'undefined') {
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                // iOS 13+ requires permission
+                DeviceMotionEvent.requestPermission().then(response => {
+                    if (response === 'granted') {
+                        window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
+                        console.log('Device motion permission granted');
+                    } else {
+                        console.log('Device motion permission denied');
+                        // Add fallback shake detection
+                        addFallbackShakeDetection();
+                    }
+                }).catch((error) => {
+                    console.log('Device motion permission error:', error);
+                    addFallbackShakeDetection();
+                });
+            } else {
+                // Android and older iOS
+                window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
+                console.log('Device motion added (no permission required)');
+            }
         } else {
-            // Android and older iOS
-            window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
+            console.log('Device motion not supported');
+            addFallbackShakeDetection();
         }
     }
+    
+    // Fallback shake detection using touch events
+    function addFallbackShakeDetection() {
+        let touchStartTime = 0;
+        let touchCount = 0;
+        
+        document.addEventListener('touchstart', function(e) {
+            touchStartTime = Date.now();
+        });
+        
+        document.addEventListener('touchend', function(e) {
+            const touchDuration = Date.now() - touchStartTime;
+            if (touchDuration < 200) { // Quick tap
+                touchCount++;
+                if (touchCount >= 3) { // Triple tap to toggle
+                    touchCount = 0;
+                    toggleTiltControl();
+                }
+                setTimeout(() => touchCount = 0, 1000); // Reset count after 1 second
+            }
+        });
+        
+        console.log('Fallback shake detection added (triple tap to toggle)');
+    }
+    
+    // Initialize motion sensors
+    initMotionSensors();
     
     // Background color change functions
     function changeBackgroundColor(direction) {
