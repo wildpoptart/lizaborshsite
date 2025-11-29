@@ -2,67 +2,18 @@ body {
     margin: 0;
     padding: 0;
     height: 100vh;
-    height: 100dvh; /* Dynamic viewport height for mobile */
     width: 100vw;
     display: flex;
-    align-items: flex-start; /* Align to top instead of center */
+    align-items: center;
+    justify-content: center;
     font-family: Arial, sans-serif;
-    font-size: 2rem;
-    flex-direction: column;
-    overflow: hidden; /* Prevent scrolling */
-    background-color: #f8f9fa; /* Initial background color */
-    transition: background-color 0.3s ease; /* Smooth color transitions */
-    position: fixed; /* Prevent mobile scrolling issues */
-    top: 0;
-    left: 0;
 }
 
 .text-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
     text-align: center;
-    padding: 5px;
-    position: relative;
-    z-index: 10;
-    border-radius: 10px;
-    align-self: center; /* Center the container horizontally */
-    top: 20px
 }
 
-.wave {
-    display: inline-block;
-    animation: wave 5s ease-in-out infinite;
-    transform-origin: 70% 70%;
-}
-
-@keyframes wave {
-    0%, 100% { transform: rotate(0deg); }
-    10%, 30% { transform: rotate(14deg); }
-    20% { transform: rotate(-8deg); }
-    40% { transform: rotate(-4deg); }
-    50% { transform: rotate(10deg); }
-    60% { transform: rotate(0deg); }
-}
-
-canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh; /* Dynamic viewport height for mobile */
-    z-index: 1;
-    display: block;
-    image-rendering: -webkit-optimize-contrast; /* Safari */
-    image-rendering: -moz-crisp-edges; /* Firefox */
-    image-rendering: crisp-edges; /* Standard */
-    image-rendering: auto; /* Fallback to smooth */
-    touch-action: none; /* Prevent default touch behaviors on Safari */
-    -webkit-touch-callout: none; /* Disable callout on iOS Safari */
-    -webkit-user-select: none; /* Disable text selection on Safari */
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    cursor: default;
+h1 {
+    margin: 0;
+    font-size: 2rem;
 }
